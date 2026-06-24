@@ -25,7 +25,11 @@
   .top .sub { font-size:.78rem; opacity:.85; margin-top:3px; }
   .bar { display:flex; justify-content:space-between; align-items:center;
     padding: 11px 22px; background:#f1e6cd; font-family:'Trebuchet MS',sans-serif;
-    font-weight:bold; font-size:.9rem; color:#5a4a26; }
+    font-weight:bold; font-size:.9rem; color:#5a4a26; gap:10px; }
+  .reset-btn { background:#fff; border:2px solid #e0d4b4; color:#9c6b1f;
+    font-weight:bold; font-size:.8rem; padding:5px 12px; border-radius:20px;
+    cursor:pointer; font-family:'Trebuchet MS',sans-serif; transition:.15s; white-space:nowrap; }
+  .reset-btn:hover { background:#2b3550; color:#f7e9c8; border-color:#2b3550; }
   .rank { color:#9c6b1f; }
   .stage { padding: 24px 24px 30px; }
   .case-tag { font-family:'Trebuchet MS',sans-serif; font-size:.74rem; font-weight:bold;
@@ -93,6 +97,7 @@
   <div class="bar">
     <div class="rank" id="rank">🎖️ Rank: Rookie</div>
     <div id="solved">Solved: 0</div>
+    <button class="reset-btn" id="resetBtn" title="Reset progress">↺ Reset</button>
   </div>
   <div class="stage" id="stage"></div>
 </div>
@@ -278,6 +283,12 @@
       '<button class="btn" id="again" style="margin-top:16px">New Investigation 🔄</button></div>';
     document.getElementById('again').onclick = () => { idx=0; solved=0; render(); };
   }
+
+  document.getElementById('resetBtn').onclick = function(){
+    if(confirm('Start a new investigation? Your solved cases will reset to 0.')){
+      idx = 0; solved = 0; intro();
+    }
+  };
 
   intro();
 })();
