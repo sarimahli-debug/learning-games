@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Detective</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background: radial-gradient(circle at 30% 10%, #3a4a6b 0%, #1c2438 70%);
+    min-height: 100vh; color: #20283c;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .wrap {
+    background: #fdf8ee; border-radius: 22px; width: 100%; max-width: 600px;
+    box-shadow: 0 20px 55px rgba(0,0,0,.45); overflow: hidden;
+    border: 3px solid #caa86a;
+  }
+  .top {
+    background: linear-gradient(100deg,#2b3550,#46587f); color:#f7e9c8;
+    padding: 18px 22px; text-align:center; font-family:'Trebuchet MS',sans-serif;
+  }
+  .top h1 { font-size: 1.55rem; letter-spacing:.5px; }
+  .top .sub { font-size:.78rem; opacity:.85; margin-top:3px; }
+  .bar { display:flex; justify-content:space-between; align-items:center;
+    padding: 11px 22px; background:#f1e6cd; font-family:'Trebuchet MS',sans-serif;
+    font-weight:bold; font-size:.9rem; color:#5a4a26; }
+  .rank { color:#9c6b1f; }
+  .stage { padding: 24px 24px 30px; }
+  .case-tag { font-family:'Trebuchet MS',sans-serif; font-size:.74rem; font-weight:bold;
+    letter-spacing:1px; color:#a07c3a; text-transform:uppercase; }
+  .case-title { font-size:1.35rem; color:#2b3550; margin:4px 0 14px; }
+  .passage {
+    background:#fff; border-left:5px solid #caa86a; border-radius:8px;
+    padding:16px 18px; font-size:1.08rem; line-height:1.65; color:#34302a;
+    box-shadow:0 3px 10px rgba(0,0,0,.06); margin-bottom:18px;
+  }
+  .question { font-family:'Trebuchet MS',sans-serif; font-weight:bold;
+    font-size:1.12rem; color:#2b3550; margin-bottom:14px; }
+  .options { display:flex; flex-direction:column; gap:10px; }
+  .opt {
+    background:#fff; border:2px solid #e0d4b4; border-radius:12px;
+    padding:13px 16px; cursor:pointer; font-size:1.02rem; transition:.15s;
+    font-family:'Trebuchet MS',sans-serif; color:#34302a;
+  }
+  .opt:hover { border-color:#caa86a; background:#fffaf0; transform:translateX(3px); }
+  .opt.right { border-color:#2fa84f; background:#e8fbee; font-weight:bold; }
+  .opt.wrong { border-color:#e03131; background:#fff0f0; animation:shake .35s; }
+  .opt.lock { pointer-events:none; }
+  .opt.dim { opacity:.5; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+  .feedback { margin-top:16px; font-family:'Trebuchet MS',sans-serif; font-weight:bold;
+    font-size:1.05rem; min-height:24px; }
+  .feedback.good { color:#2b8a3e; }
+  .feedback.try { color:#d9480f; }
+  .explain { background:#eef4ff; border-radius:10px; padding:12px 14px; margin-top:12px;
+    font-size:.98rem; line-height:1.5; color:#2b3550; }
+  .bonus {
+    margin-top:14px; background:linear-gradient(120deg,#fff4d6,#ffe8b8);
+    border:2px dashed #caa86a; border-radius:12px; padding:14px 16px;
+    font-family:'Trebuchet MS',sans-serif;
+  }
+  .bonus .lbl { font-size:.72rem; font-weight:bold; letter-spacing:1px;
+    color:#a07c3a; text-transform:uppercase; }
+  .bonus .word { font-size:1.3rem; font-weight:bold; color:#2b3550; margin:4px 0 8px; }
+  .langs { display:flex; gap:8px; flex-wrap:wrap; }
+  .chip { background:#fff; border-radius:20px; padding:6px 13px; font-size:.95rem;
+    box-shadow:0 2px 5px rgba(0,0,0,.08); }
+  .chip b { color:#9c6b1f; }
+  .btn {
+    margin-top:18px; background:#2b3550; color:#f7e9c8; border:none;
+    padding:13px 28px; font-size:1.02rem; font-weight:bold; border-radius:28px;
+    cursor:pointer; font-family:'Trebuchet MS',sans-serif;
+    box-shadow:0 5px 0 #1a2030; transition:.1s;
+  }
+  .btn:active { transform:translateY(3px); box-shadow:0 2px 0 #1a2030; }
+  .intro { text-align:center; font-family:'Trebuchet MS',sans-serif; }
+  .intro p { margin:14px 4px; line-height:1.55; color:#48526e; }
+  .big { font-size:3.4rem; }
+  .end { text-align:center; font-family:'Trebuchet MS',sans-serif; }
+  .end h2 { color:#2b3550; font-size:1.7rem; margin:8px 0; }
+  .badge { font-size:3rem; margin:6px 0; }
+  .end .score { font-size:1.5rem; color:#9c6b1f; font-weight:bold; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>🕵️ Word Detective</h1>
+    <div class="sub">مُحقِّق الكلمات · Wort-Detektiv</div>
+  </div>
+  <div class="bar">
+    <div class="rank" id="rank">🎖️ Rank: Rookie</div>
+    <div id="solved">Solved: 0</div>
+  </div>
+  <div class="stage" id="stage"></div>
+</div>
+
+<script>
+(function(){
+  const cases = [
+    {
+      title: "The Forbidden Bridge",
+      passage: "The old bridge was so <b>dilapidated</b> that the council put up a fence to keep everyone away. Cracks ran across every plank, and a single strong gust could send the whole thing tumbling into the river below.",
+      question: "What does “dilapidated” most likely mean?",
+      options: ["Brand new and shiny","Falling apart and unsafe","Crowded and busy","Brightly painted"],
+      answer: 1,
+      explain: "Detective clues: “cracks on every plank” and “could tumble into the river” tell you it's in bad, broken shape.",
+      vocab: { word:"dilapidated", ar:"مُتَهالِك", arT:"mutahālik", de:"baufällig" }
+    },
+    {
+      title: "The Folded Letter",
+      passage: "Maya read the letter twice, then folded it small and pressed it to her chest. She didn't say a word, but her eyes were shining and a smile kept escaping no matter how hard she pressed her lips together.",
+      question: "How is Maya most likely feeling?",
+      options: ["Angry","Overjoyed","Bored","Frightened"],
+      answer: 1,
+      explain: "Nobody told you her feeling — you inferred it. Shining eyes and a smile she can't hold back are clues to great happiness.",
+      vocab: { word:"overjoyed", ar:"سعيد جدًا", arT:"saʿīd jiddan", de:"überglücklich" }
+    },
+    {
+      title: "The Frozen Summit",
+      passage: "By the time the team reached the <b>summit</b>, the wind had stripped away the last of the warmth. Their water bottles had frozen solid, and even speaking felt like too much effort.",
+      question: "Why did speaking feel like too much effort?",
+      options: ["They were underwater","They were extremely cold and exhausted","They were fast asleep","They were laughing too hard"],
+      answer: 1,
+      explain: "Frozen bottles + stripped-away warmth = brutal cold and tiredness. That's why even talking was hard.",
+      vocab: { word:"summit", ar:"قِمّة", arT:"qimma", de:"Gipfel" }
+    },
+    {
+      title: "The Wobbly Tower",
+      passage: "Sam balanced the last book on top of the <b>wobbly</b> tower. It leaned left, then right, then left again. He reached out a hand — but it was already too late.",
+      question: "What most likely happens next?",
+      options: ["The tower stands perfectly still","The books come crashing down","Sam sits and reads a book","The lights switch off"],
+      answer: 1,
+      explain: "A good detective predicts. “Wobbly,” leaning, and “too late” all point to a crash coming.",
+      vocab: { word:"wobbly", ar:"مُتَأرجِح", arT:"mutaʾarjiḥ", de:"wackelig" }
+    },
+    {
+      title: "The Tireless Hunt",
+      passage: "The detective was <b>relentless</b>. Rain or shine, locked doors or dead ends, she never once stopped chasing the truth.",
+      question: "A “relentless” person is someone who...",
+      options: ["Gives up easily","Never stops trying","Sleeps a lot","Is very shy"],
+      answer: 1,
+      explain: "“Never once stopped” no matter the trouble is your clue: relentless means refusing to give up.",
+      vocab: { word:"relentless", ar:"مُثابِر", arT:"muthābir", de:"unermüdlich" }
+    },
+    {
+      title: "The White Lid",
+      passage: "Lina pulled her scarf tighter and watched her breath turn to smoke in the air. Around her, <b>bare</b> branches clicked together, and the pond wore a thin white lid.",
+      question: "What season is it most likely?",
+      options: ["Hot summer","Winter","Spring blossom","A desert noon"],
+      answer: 1,
+      explain: "Breath like smoke, leafless branches, and a frozen 'white lid' on the pond all add up to deep winter.",
+      vocab: { word:"bare", ar:"أَجرَد / عارٍ", arT:"ajrad", de:"kahl" }
+    },
+    {
+      title: "The Shared Umbrella",
+      passage: "Theo offered his umbrella to the new student, even though it meant he'd get soaked himself. “It's no big deal,” he shrugged, already stepping out into the rain.",
+      question: "What does this tell us about Theo?",
+      options: ["He is selfish","He is kind and generous","He hates the rain","He is in a hurry"],
+      answer: 1,
+      explain: "Actions reveal character. Giving up his own umbrella for someone else shows kindness and generosity.",
+      vocab: { word:"generous", ar:"كَريم", arT:"karīm", de:"großzügig" }
+    },
+    {
+      title: "The Tenth Experiment",
+      passage: "The scientist's first experiment failed. So did the second, and the tenth. But she remained <b>undeterred</b>, scribbling new ideas late into the night, certain that one of them would finally work.",
+      question: "“Undeterred” means she was...",
+      options: ["Not discouraged at all","Very sleepy","Confused and lost","Completely finished"],
+      answer: 0,
+      explain: "Even after ten failures she kept inventing, sure of success. “Undeterred” means not put off or discouraged.",
+      vocab: { word:"undeterred", ar:"غير مُثبَّط", arT:"ghayr muthabbaṭ", de:"unbeirrt" }
+    }
+  ];
+
+  let idx = 0, solved = 0, answered = false;
+  const stage = document.getElementById('stage');
+  const rankEl = document.getElementById('rank');
+  const solvedEl = document.getElementById('solved');
+
+  function rankName(n){
+    if(n>=8) return 'Chief Inspector 🏅';
+    if(n>=6) return 'Inspector';
+    if(n>=4) return 'Detective';
+    if(n>=2) return 'Sergeant';
+    return 'Rookie';
+  }
+  function updateBar(){
+    rankEl.textContent = '🎖️ Rank: ' + rankName(solved);
+    solvedEl.textContent = 'Solved: ' + solved + ' / ' + cases.length;
+  }
+
+  function intro(){
+    updateBar();
+    stage.innerHTML =
+      '<div class="intro"><div class="big">🕵️‍♂️🔎</div>'+
+      '<h2 style="color:#2b3550;margin-top:6px">Welcome, Detective!</h2>'+
+      '<p>Every case is a short story with a hidden clue. Read carefully, '+
+      'use the evidence, and figure out the answer — just like a real word detective.</p>'+
+      '<p>Solve a case and you\'ll unlock a <b>Language Bonus</b>: the key word in '+
+      'English, Arabic, and German! 🇬🇧 🇦🇪 🇩🇪</p>'+
+      '<button class="btn" id="go">Open Case File #1 →</button></div>';
+    document.getElementById('go').onclick = () => { idx=0; solved=0; render(); };
+  }
+
+  function render(){
+    answered = false;
+    updateBar();
+    const c = cases[idx];
+    let html =
+      '<div class="case-tag">Case File #'+(idx+1)+'</div>'+
+      '<div class="case-title">'+c.title+'</div>'+
+      '<div class="passage">'+c.passage+'</div>'+
+      '<div class="question">🔎 '+c.question+'</div>'+
+      '<div class="options" id="opts"></div>'+
+      '<div class="feedback" id="fb"></div>';
+    stage.innerHTML = html;
+    const box = document.getElementById('opts');
+    c.options.forEach((text,i)=>{
+      const b = document.createElement('div');
+      b.className = 'opt'; b.textContent = text;
+      b.onclick = () => choose(b, i, c);
+      box.appendChild(b);
+    });
+  }
+
+  function choose(el, i, c){
+    if(answered) return;
+    const fb = document.getElementById('fb');
+    if(i === c.answer){
+      answered = true; solved++;
+      updateBar();
+      el.classList.add('right');
+      document.querySelectorAll('.opt').forEach(o=>{ o.classList.add('lock'); if(o!==el) o.classList.add('dim'); });
+      fb.className = 'feedback good';
+      fb.textContent = 'Case solved! 🎉 Great detective work.';
+      const ex = document.createElement('div');
+      ex.className = 'explain';
+      ex.innerHTML = '<b>Why:</b> ' + c.explain;
+      stage.appendChild(ex);
+      const v = c.vocab;
+      const bonus = document.createElement('div');
+      bonus.className = 'bonus';
+      bonus.innerHTML =
+        '<div class="lbl">🌍 Language Bonus</div>'+
+        '<div class="word">'+v.word+'</div>'+
+        '<div class="langs">'+
+          '<div class="chip"><b>EN</b> '+v.word+'</div>'+
+          '<div class="chip"><b>AR</b> '+v.ar+' <span style="color:#888">('+v.arT+')</span></div>'+
+          '<div class="chip"><b>DE</b> '+v.de+'</div>'+
+        '</div>';
+      stage.appendChild(bonus);
+      const next = document.createElement('button');
+      next.className = 'btn';
+      next.textContent = idx < cases.length-1 ? 'Next Case →' : 'Finish & see my rank 🏅';
+      next.onclick = () => { idx++; idx < cases.length ? render() : end(); };
+      stage.appendChild(next);
+    } else {
+      el.classList.add('wrong','lock');
+      fb.className = 'feedback try';
+      fb.textContent = 'Re-read the clues — a good detective checks twice! 🔍';
+    }
+  }
+
+  function end(){
+    updateBar();
+    let badge, msg;
+    if(solved >= 7){ badge='🏅🌟'; msg='Outstanding! You read like a true Chief Inspector.'; }
+    else if(solved >= 5){ badge='🎖️🔎'; msg='Excellent detective work — your reading clues are sharp!'; }
+    else { badge='🕵️💪'; msg='Good hunting! Every case makes you a sharper detective. Try again to rank up!'; }
+    stage.innerHTML =
+      '<div class="end"><div class="badge">'+badge+'</div>'+
+      '<h2>Case Files Closed!</h2>'+
+      '<div class="score">Final rank: '+rankName(solved)+'</div>'+
+      '<p style="color:#48526e;margin:12px 4px;line-height:1.5">'+msg+'</p>'+
+      '<div class="score">'+solved+' / '+cases.length+' cases solved</div>'+
+      '<button class="btn" id="again" style="margin-top:16px">New Investigation 🔄</button></div>';
+    document.getElementById('again').onclick = () => { idx=0; solved=0; render(); };
+  }
+
+  intro();
+})();
+</script>
+</body>
+</html>

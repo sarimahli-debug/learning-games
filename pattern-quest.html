@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern Quest</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(160deg, #6a5cff 0%, #00c2ff 100%);
+    min-height: 100vh; color: #16264a;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .wrap {
+    background: #fff; border-radius: 26px; width: 100%; max-width: 560px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.28); overflow: hidden;
+  }
+  .top {
+    background: linear-gradient(100deg,#5b4bff,#00a8c8); color:#fff;
+    padding: 18px 22px; text-align:center;
+  }
+  .top h1 { font-size: 1.5rem; letter-spacing:.5px; }
+  .top .sub { font-size:.8rem; opacity:.9; margin-top:3px; }
+  .bar { display:flex; justify-content:space-between; align-items:center;
+    padding: 12px 22px; background:#f3f4ff; font-weight:bold; font-size:.95rem; }
+  .stars { color:#ff9f1c; }
+  .progress { display:flex; gap:6px; }
+  .pdot { width:14px; height:14px; border-radius:50%; background:#d7d9f0; }
+  .pdot.done { background:#51cf66; }
+  .pdot.now { background:#5b4bff; transform:scale(1.25); }
+  .stage { padding: 26px 22px 30px; text-align:center; }
+  .instruction { font-size:1.12rem; font-weight:bold; margin-bottom:18px; line-height:1.4; min-height:48px; }
+  .seq { display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; margin-bottom:22px; }
+  .arrow-sep { font-size:1.6rem; color:#9aa0c8; }
+  .matrix { display:grid; grid-template-columns:repeat(3,1fr); gap:8px;
+    width:230px; margin:0 auto 22px; background:#eef0ff; padding:10px; border-radius:16px; }
+  .mcell { background:#fff; border-radius:12px; aspect-ratio:1; display:flex;
+    align-items:center; justify-content:center; box-shadow:inset 0 0 0 2px #e3e6ff; }
+  .mcell.q { font-size:2rem; font-weight:bold; color:#5b4bff; }
+  .glyph { width:100%; height:100%; max-width:62px; max-height:62px; }
+  .options { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+  .opt {
+    background:#f7f8ff; border:3px solid #e3e6ff; border-radius:18px;
+    padding:14px; cursor:pointer; transition:.15s; display:flex;
+    align-items:center; justify-content:center; min-height:96px;
+  }
+  .opt:hover { border-color:#5b4bff; transform:translateY(-2px); }
+  .opt.right { border-color:#51cf66; background:#e8fbee; }
+  .opt.wrong { border-color:#ff6b6b; background:#fff0f0; animation:shake .35s; }
+  .opt.lock { pointer-events:none; opacity:.55; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+  .feedback { margin-top:18px; font-size:1.1rem; font-weight:bold; min-height:28px; }
+  .feedback.good { color:#2fa84f; }
+  .feedback.try { color:#e8590c; }
+  .btn {
+    margin-top:20px; background:#5b4bff; color:#fff; border:none;
+    padding:14px 30px; font-size:1.05rem; font-weight:bold; border-radius:30px;
+    cursor:pointer; box-shadow:0 6px 0 #3d2fcf; transition:.1s;
+  }
+  .btn:active { transform:translateY(4px); box-shadow:0 2px 0 #3d2fcf; }
+  .intro p { margin:14px 0; line-height:1.5; color:#384168; }
+  .big-emoji { font-size:3.4rem; }
+  .end h2 { font-size:1.7rem; color:#5b4bff; margin:10px 0; }
+  .end .score { font-size:2.6rem; color:#ff9f1c; font-weight:bold; margin:6px 0; }
+  .hidden { display:none; }
+  .tag { display:inline-block; background:#eef0ff; color:#5b4bff; font-size:.72rem;
+    padding:4px 10px; border-radius:20px; margin-top:8px; font-weight:bold; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>🧭 Pattern Quest</h1>
+    <div class="sub">مهمة الأنماط · Muster-Quest</div>
+  </div>
+  <div class="bar">
+    <div class="stars" id="starCount">⭐ 0</div>
+    <div class="progress" id="progress"></div>
+  </div>
+  <div class="stage" id="stage"></div>
+</div>
+
+<script>
+(function(){
+  const ROUNDS = 8;
+  const colors = ['#5b4bff','#ff6b6b','#00a8c8','#ff9f1c','#9b5de5','#2fa84f'];
+  let rounds = [], current = 0, stars = 0, firstTry = true, answered = false;
+
+  const rand = a => a[Math.floor(Math.random()*a.length)];
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+  const norm = a => ((a % 360) + 360) % 360;
+
+  function arrowSVG(angle,color){
+    return '<svg viewBox="0 0 100 100" class="glyph"><g transform="rotate('+angle+' 50 50)">'+
+      '<polygon points="50,12 72,45 58,45 58,86 42,86 42,45 28,45" fill="'+color+'"/></g></svg>';
+  }
+  function flagSVG(angle,mirror,color){
+    const m = mirror ? 'translate(100,0) scale(-1,1)' : '';
+    return '<svg viewBox="0 0 100 100" class="glyph"><g transform="rotate('+angle+' 50 50) '+m+'">'+
+      '<rect x="34" y="18" width="8" height="64" rx="3" fill="'+color+'"/>'+
+      '<polygon points="42,20 78,34 42,48" fill="'+color+'"/>'+
+      '<circle cx="38" cy="84" r="5" fill="#16264a"/></g></svg>';
+  }
+  function dotsSVG(count,color){
+    const pos = {1:[[50,50]],2:[[34,50],[66,50]],3:[[30,38],[50,66],[70,38]],4:[[34,34],[66,34],[34,66],[66,66]]};
+    const d = pos[count].map(p=>'<circle cx="'+p[0]+'" cy="'+p[1]+'" r="11" fill="'+color+'"/>').join('');
+    return '<svg viewBox="0 0 100 100" class="glyph">'+d+'</svg>';
+  }
+
+  function seqPuzzle(level){
+    const step = level < 3 ? 90 : 45;
+    const dir = Math.random() < .5 ? 1 : -1;
+    const start = rand([0,45,90,135,180]);
+    const color = rand(colors);
+    const frames = [0,1,2].map(i=>arrowSVG(start+dir*step*i,color)).join('<span class="arrow-sep">→</span>');
+    const correct = start + dir*step*3;
+    const opts = [{html:arrowSVG(correct,color),correct:true}];
+    const used = new Set([norm(correct)]);
+    const pool = [90,-90,180,45,-45,135,-135];
+    while(opts.length < 4){
+      const d = correct + rand(pool);
+      if(!used.has(norm(d))){ used.add(norm(d)); opts.push({html:arrowSVG(d,color),correct:false}); }
+    }
+    return { instruction:'What comes next? 🔄', stimulus:'<div class="seq">'+frames+
+      '<span class="arrow-sep">→</span><div class="mcell q" style="width:62px;height:62px">?</div></div>',
+      options: shuffle(opts) };
+  }
+
+  function matrixPuzzle(level){
+    const rc = shuffle(colors.slice()).slice(0,3);
+    const byRow = Math.random() < .5; // count grows by column, color by row (or swapped)
+    let grid = '<div class="matrix">';
+    for(let r=0;r<3;r++) for(let c=0;c<3;c++){
+      if(r===2 && c===2){ grid += '<div class="mcell q">?</div>'; }
+      else {
+        const count = byRow ? c+1 : r+1;
+        const col   = byRow ? rc[r] : rc[c];
+        grid += '<div class="mcell">'+dotsSVG(count,col)+'</div>';
+      }
+    }
+    grid += '</div>';
+    const goodCount = byRow ? 3 : 3;
+    const goodColor = byRow ? rc[2] : rc[2];
+    const opts = [
+      {html:dotsSVG(3,goodColor),correct:true},
+      {html:dotsSVG(2,goodColor),correct:false},
+      {html:dotsSVG(4,goodColor),correct:false},
+      {html:dotsSVG(3, rc[0]===goodColor?rc[1]:rc[0]),correct:false}
+    ];
+    return { instruction:'Which piece completes the pattern? 🧩', stimulus:grid, options:shuffle(opts) };
+  }
+
+  function flagPuzzle(level){
+    const color = rand(colors);
+    const odd = Math.floor(Math.random()*4);
+    const rots = shuffle([0,90,180,270]);
+    const opts = [];
+    for(let i=0;i<4;i++){
+      if(i===odd) opts.push({html:flagSVG(rots[i],true,color),correct:true});
+      else opts.push({html:flagSVG(rots[i],false,color),correct:false});
+    }
+    return { instruction:'🔍 Three flags are the SAME shape turned around. One is its mirror — tap the odd one out!',
+      stimulus:'', options:opts };
+  }
+
+  function buildRounds(){
+    rounds = [];
+    const types = [seqPuzzle, matrixPuzzle, flagPuzzle];
+    for(let i=0;i<ROUNDS;i++){
+      const level = Math.floor(i/2)+1;
+      rounds.push(types[i%3](level));
+    }
+  }
+
+  const stage = document.getElementById('stage');
+  const starEl = document.getElementById('starCount');
+  const progEl = document.getElementById('progress');
+
+  function drawProgress(){
+    progEl.innerHTML = '';
+    for(let i=0;i<ROUNDS;i++){
+      const d = document.createElement('div');
+      d.className = 'pdot' + (i<current?' done':'') + (i===current?' now':'');
+      progEl.appendChild(d);
+    }
+  }
+
+  function intro(){
+    stage.innerHTML =
+      '<div class="intro">'+
+      '<div class="big-emoji">🧭🌟</div>'+
+      '<h2 style="color:#5b4bff;margin-top:8px">Welcome, Pattern Explorer!</h2>'+
+      '<p>You\'re great at seeing how shapes fit together. In this quest you\'ll spot rotations, '+
+      'finish patterns, and catch sneaky mirror shapes.</p>'+
+      '<p><b>8 puzzles. Take your time. There\'s no rush — just look closely!</b></p>'+
+      '<button class="btn" id="go">Start the Quest →</button>'+
+      '<div class="tag">Brain skills: spatial + pattern reasoning</div></div>';
+    document.getElementById('go').onclick = () => { current=0; stars=0; render(); };
+  }
+
+  function render(){
+    answered = false; firstTry = true;
+    drawProgress();
+    starEl.textContent = '⭐ ' + stars;
+    const r = rounds[current];
+    stage.innerHTML =
+      '<div class="instruction">'+r.instruction+'</div>'+
+      r.stimulus +
+      '<div class="options" id="opts"></div>'+
+      '<div class="feedback" id="fb"></div>';
+    const box = document.getElementById('opts');
+    r.options.forEach(o=>{
+      const b = document.createElement('div');
+      b.className = 'opt'; b.innerHTML = o.html;
+      b.onclick = () => choose(b, o);
+      box.appendChild(b);
+    });
+  }
+
+  const praise = ['Brilliant! 🌟','Sharp eyes! 👀','You spotted it! 🎯','Nice thinking! 🧠','Yes! Pattern master! 🏆'];
+  const tryAgain = ['Not quite — look again, you\'ve got this! 💪','Close! Compare them carefully. 🔎','Hmm, try another one — explorers never give up!'];
+
+  function choose(el, opt){
+    if(answered) return;
+    const fb = document.getElementById('fb');
+    if(opt.correct){
+      answered = true;
+      el.classList.add('right');
+      document.querySelectorAll('.opt').forEach(o=>o.classList.add('lock'));
+      if(firstTry){ stars++; starEl.textContent = '⭐ ' + stars; }
+      fb.className = 'feedback good';
+      fb.textContent = rand(praise);
+      const next = document.createElement('button');
+      next.className = 'btn';
+      next.textContent = current < ROUNDS-1 ? 'Next puzzle →' : 'See my results 🎉';
+      next.onclick = () => { current++; current < ROUNDS ? render() : end(); };
+      stage.appendChild(next);
+    } else {
+      firstTry = false;
+      el.classList.add('wrong','lock');
+      fb.className = 'feedback try';
+      fb.textContent = rand(tryAgain);
+    }
+  }
+
+  function end(){
+    drawProgress();
+    let msg, emoji;
+    if(stars >= 7){ msg = 'Incredible work — you\'re a true Pattern Master!'; emoji='🏆🌟'; }
+    else if(stars >= 5){ msg = 'Awesome thinking! Your pattern powers are strong.'; emoji='🎯✨'; }
+    else { msg = 'Great effort — every explorer gets sharper with practice. Play again to beat your score!'; emoji='💪🧭'; }
+    stage.innerHTML =
+      '<div class="end"><div class="big-emoji">'+emoji+'</div>'+
+      '<h2>Quest Complete!</h2>'+
+      '<div class="score">'+stars+' / '+ROUNDS+' ⭐</div>'+
+      '<p style="color:#384168;line-height:1.5;margin:10px 0">'+msg+'</p>'+
+      '<button class="btn" id="again">Play Again 🔄</button></div>';
+    document.getElementById('again').onclick = () => { buildRounds(); current=0; stars=0; render(); };
+  }
+
+  buildRounds();
+  intro();
+})();
+</script>
+</body>
+</html>
